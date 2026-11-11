@@ -11,16 +11,68 @@
 // usando multer com diskStorage. Não utilize provedores externos.
 
 const express = require('express');
+const path = require('node:path');
+const multer = require('multer');
+const { createDocumentsRepository } = require('./repositories/documents.repository');
+const { createDocumentsService } = require('./services/documents.service');
+const { createDocumentsController } = require('./controllers/documents.controller');
+const { createDocumentsRouter } = require('./routes/documents.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const storageDir = path.resolve(
+  process.env.STORAGE_DIR || path.join(__dirname, '../storage')
+);
+const maxFileSizeBytes = Number(
+  process.env.MAX_FILE_SIZE_BYTES || 10 * 1024 * 1024
+);
+
+if (!Number.isSafeInteger(maxFileSizeBytes) || maxFileSizeBytes <= 0) {
+  throw new Error('MAX_FILE_SIZE_BYTES deve ser um inteiro positivo.');
+}
+
+const documentsRepository = createDocumentsRepository(storageDir);
+const documentsService = createDocumentsService(documentsRepository);
+const documentsController = createDocumentsController(documentsService);
 
 app.use(express.json());
 
-// Endpoint de verificação de saúde. As demais rotas (/upload, /documents,
-// /documents/:id/download) serão implementadas durante o Passo 2.
+app.use(
+  createDocumentsRouter({
+    documentsController,
+    storageDir,
+    maxFileSizeBytes
+  })
+);
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
+});
+
+app.use((error, req, res, next) => {
+  if (res.headersSent) {
+    return next(error);
+  }
+
+  if (error instanceof multer.MulterError) {
+    const isFileTooLarge = error.code === 'LIMIT_FILE_SIZE';
+    return res.status(isFileTooLarge ? 413 : 400).json({
+      error: {
+        code: isFileTooLarge ? 'FILE_TOO_LARGE' : 'INVALID_UPLOAD',
+        message: isFileTooLarge
+          ? 'O arquivo excede o limite permitido.'
+          : 'Não foi possível processar o arquivo enviado.'
+      }
+    });
+  }
+
+  console.error('Erro ao processar requisição:', error);
+  return res.status(500).json({
+    error: {
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'Ocorreu um erro interno.'
+    }
+  });
 });
 
 if (require.main === module) {
