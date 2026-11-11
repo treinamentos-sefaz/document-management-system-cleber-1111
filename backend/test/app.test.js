@@ -80,6 +80,12 @@ test('API de documentos', async (t) => {
       headers: { 'X-User-Id': 'usuario-2' }
     });
     assert.deepEqual((await otherOwnerResponse.json()).documents, []);
+
+    const oversizedOwnerResponse = await fetch(`${baseUrl}/documents`, {
+      headers: { 'X-User-Id': 'u'.repeat(129) }
+    });
+    assert.equal(oversizedOwnerResponse.status, 400);
+    assert.equal((await oversizedOwnerResponse.json()).error.code, 'INVALID_USER_ID');
   });
 
   await t.test('baixa somente para o proprietário', async () => {
@@ -115,5 +121,20 @@ test('API de documentos', async (t) => {
     });
     assert.equal(tooLargeResponse.status, 413);
     assert.equal((await tooLargeResponse.json()).error.code, 'FILE_TOO_LARGE');
+  });
+
+  await t.test('rejeita campos multipart adicionais', async () => {
+    const formData = new FormData();
+    formData.set('file', new Blob(['conteudo']), 'relatorio.txt');
+    formData.set('unexpected', 'valor');
+
+    const response = await fetch(`${baseUrl}/upload`, {
+      method: 'POST',
+      headers: { 'X-User-Id': 'usuario-1' },
+      body: formData
+    });
+
+    assert.equal(response.status, 400);
+    assert.equal((await response.json()).error.code, 'INVALID_UPLOAD');
   });
 });

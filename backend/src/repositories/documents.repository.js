@@ -21,7 +21,17 @@ function createDocumentsRepository(storageDir) {
     },
 
     getFilePath(document) {
-      return path.join(storageDir, document.storageName);
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(document.storageName)) {
+        throw new Error('Nome interno de armazenamento inválido.');
+      }
+
+      const filePath = path.resolve(storageDir, document.storageName);
+      const relativePath = path.relative(storageDir, filePath);
+      if (relativePath.startsWith(`..${path.sep}`) || relativePath === '..' || path.isAbsolute(relativePath)) {
+        throw new Error('Caminho de armazenamento fora do diretório permitido.');
+      }
+
+      return filePath;
     }
   };
 }

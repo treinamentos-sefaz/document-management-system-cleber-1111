@@ -17,7 +17,13 @@ function createDocumentsRouter({
   });
   const upload = multer({
     storage,
-    limits: { fileSize: maxFileSizeBytes }
+    limits: {
+      fileSize: maxFileSizeBytes,
+      files: 1,
+      fields: 1,
+      parts: 2,
+      fieldNameSize: 100
+    }
   });
   const router = express.Router();
 
@@ -27,8 +33,12 @@ function createDocumentsRouter({
     upload.single('file'),
     documentsController.upload
   );
-  router.get('/documents', documentsController.list);
-  router.get('/documents/:id/download', documentsController.download);
+  router.get('/documents', documentsController.requireOwner, documentsController.list);
+  router.get(
+    '/documents/:id/download',
+    documentsController.requireOwner,
+    documentsController.download
+  );
 
   return router;
 }
