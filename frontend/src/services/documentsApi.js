@@ -1,7 +1,9 @@
+const apiBaseUrl = (import.meta.env?.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
+
 async function request(path, owner, options = {}) {
   let response;
   try {
-    response = await fetch(`/api${path}`, {
+    response = await fetch(`${apiBaseUrl}${path}`, {
       ...options,
       headers: { ...options.headers, 'X-User-Id': owner }
     });
